@@ -51,7 +51,7 @@ Config.POINTS_PER_AREA = 10
 Config.POINTS_PER_ELIMINATION = 50
 
 -- Posiciones en el Lobby
-Config.LOBBY_SPAWN_POSITION = Vector3.new(0, 5, 0)
+Config.LOBBY_SPAWN_POSITION = Vector3.new(0, 5, 130)
 Config.NORMAL_PORTAL_POSITION = Vector3.new(-20, 5, 0)
 Config.DEBUG_PORTAL_POSITION = Vector3.new(20, 5, 0)
 

@@ -474,12 +474,12 @@ local function CreateLobby()
 	ceiling.Parent = LobbyFolder
 
 	-- ══════════════════════════════════════════════════════════════
-	-- SPAWN (sin rotación - jugador mira hacia Z negativo = portal)
+	-- SPAWN (lado opuesto al portal, cerca de la pared trasera)
 	-- ══════════════════════════════════════════════════════════════
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "LobbySpawn"
 	spawn.Size = Vector3.new(8, 0.3, 8)
-	spawn.Position = LOBBY_POSITION + Vector3.new(0, 0.65, LOBBY.SPAWN_Z)
+	spawn.Position = LOBBY_POSITION + Vector3.new(0, 0.65, 130)
 	spawn.Anchored = true
 	spawn.Material = Enum.Material.Neon
 	spawn.Color = Color3.fromRGB(60, 120, 200)
@@ -1564,12 +1564,8 @@ end)
 
 Players.PlayerAdded:Connect(function(player)
 	UpdateDebugPortalVisibility()
-
-	-- Enviar al lobby cuando el personaje cargue
-	player.CharacterAdded:Connect(function(character)
-		wait(1)
-		TeleportToLobby(player)
-	end)
+	-- El jugador aparecerá automáticamente en el SpawnLocation (LobbySpawn)
+	-- No necesitamos teletransportarlo manualmente
 end)
 
 -- ============================================
