@@ -254,8 +254,8 @@ local function CreateShopItem(position, itemData, facing)
 	local signOffset = facing == "left" and 5 or -5  -- Más apartado
 	local signPost = Instance.new("Part")
 	signPost.Name = "SignPost"
-	signPost.Size = Vector3.new(0.5, 4, 0.5)
-	signPost.Position = position + Vector3.new(signOffset, 2, 0)
+	signPost.Size = Vector3.new(0.5, 8, 0.5)
+	signPost.Position = position + Vector3.new(signOffset, 4, 0)
 	signPost.Anchored = true
 	signPost.Material = Enum.Material.Wood
 	signPost.Color = Color3.fromRGB(100, 70, 40)
@@ -263,8 +263,8 @@ local function CreateShopItem(position, itemData, facing)
 
 	local sign = Instance.new("Part")
 	sign.Name = "Sign"
-	sign.Size = Vector3.new(8, 5, 0.5)
-	sign.Position = position + Vector3.new(signOffset, 5, 0)
+	sign.Size = Vector3.new(8, 8, 0.5)
+	sign.Position = position + Vector3.new(signOffset, 10, 0)
 	sign.Orientation = Vector3.new(0, facing == "left" and 90 or -90, 0)  -- Girado 180° para mirar al centro
 	sign.Anchored = true
 	sign.Material = Enum.Material.Wood
@@ -709,16 +709,15 @@ end
 -- ============================================
 
 local function CreateScoreboards()
-	-- Paneles a UN LADO del pasillo (izquierda), mirando hacia el centro
-	local scoreX = -20  -- Más hacia el centro (antes -28)
-	local scoreSpacing = 18  -- Separación entre paneles
+	-- Paneles a CADA LADO de la alfombra roja, mirando hacia el jugador
+	local scoreX = 18  -- Distancia desde el centro (a cada lado de la alfombra)
 
-	-- ========== PANEL DIARIO (más cerca del spawn) ==========
+	-- ========== PANEL DIARIO (lado derecho de la alfombra) ==========
 	local dailyBoard = Instance.new("Part")
 	dailyBoard.Name = "DailyScoreBoard"
-	dailyBoard.Size = Vector3.new(12, 14, 1)
-	dailyBoard.Position = LOBBY_POSITION + Vector3.new(scoreX, 8, LOBBY.SCORE_Z + scoreSpacing/2)
-	dailyBoard.Orientation = Vector3.new(0, 90, 0)  -- Mirando hacia el centro (X positivo)
+	dailyBoard.Size = Vector3.new(12, 14, 0.5)
+	dailyBoard.Position = LOBBY_POSITION + Vector3.new(scoreX, 8, LOBBY.SCORE_Z)
+	dailyBoard.Orientation = Vector3.new(0, 0, 0)  -- Mirando hacia Z (hacia el jugador)
 	dailyBoard.Anchored = true
 	dailyBoard.Material = Enum.Material.Wood
 	dailyBoard.Color = Color3.fromRGB(60, 42, 28)
@@ -727,20 +726,27 @@ local function CreateScoreboards()
 	-- Marco decorativo
 	local dailyFrame = Instance.new("Part")
 	dailyFrame.Name = "DailyFrame"
-	dailyFrame.Size = Vector3.new(13.5, 15.5, 0.5)
-	dailyFrame.Position = LOBBY_POSITION + Vector3.new(scoreX - 0.3, 8, LOBBY.SCORE_Z + scoreSpacing/2)
-	dailyFrame.Orientation = Vector3.new(0, 90, 0)
+	dailyFrame.Size = Vector3.new(13.5, 15.5, 0.3)
+	dailyFrame.Position = LOBBY_POSITION + Vector3.new(scoreX, 8, LOBBY.SCORE_Z)
+	dailyFrame.Orientation = Vector3.new(0, 0, 0)
 	dailyFrame.Anchored = true
 	dailyFrame.Material = Enum.Material.Slate
 	dailyFrame.Color = Color3.fromRGB(35, 28, 22)
 	dailyFrame.Parent = LobbyFolder
 
-	local dailyGui = Instance.new("SurfaceGui")
-	dailyGui.Name = "DailyGui"
-	dailyGui.Face = Enum.NormalId.Front
-	dailyGui.Parent = dailyBoard
+	-- GUI en el lado frontal (mirando hacia el spawn)
+	local dailyGuiFront = Instance.new("SurfaceGui")
+	dailyGuiFront.Name = "DailyGui"
+	dailyGuiFront.Face = Enum.NormalId.Front
+	dailyGuiFront.Parent = dailyBoard
+	CreateScoreboardUI(dailyGuiFront, "🏆 TODAY'S BEST", Color3.fromRGB(255, 200, 50))
 
-	CreateScoreboardUI(dailyGui, "🏆 TODAY'S BEST", Color3.fromRGB(255, 200, 50))
+	-- GUI en el lado trasero (mirando hacia el portal)
+	local dailyGuiBack = Instance.new("SurfaceGui")
+	dailyGuiBack.Name = "DailyGuiBack"
+	dailyGuiBack.Face = Enum.NormalId.Back
+	dailyGuiBack.Parent = dailyBoard
+	CreateScoreboardUI(dailyGuiBack, "🏆 TODAY'S BEST", Color3.fromRGB(255, 200, 50))
 
 	local dailyLight = Instance.new("PointLight")
 	dailyLight.Color = Color3.fromRGB(255, 180, 80)
@@ -748,12 +754,12 @@ local function CreateScoreboards()
 	dailyLight.Range = 18
 	dailyLight.Parent = dailyBoard
 
-	-- ========== PANEL SEMANAL (más cerca del portal) ==========
+	-- ========== PANEL SEMANAL (lado izquierdo de la alfombra) ==========
 	local weeklyBoard = Instance.new("Part")
 	weeklyBoard.Name = "WeeklyScoreBoard"
-	weeklyBoard.Size = Vector3.new(12, 14, 1)
-	weeklyBoard.Position = LOBBY_POSITION + Vector3.new(scoreX, 8, LOBBY.SCORE_Z - scoreSpacing/2)
-	weeklyBoard.Orientation = Vector3.new(0, 90, 0)  -- Mirando hacia el centro (X positivo)
+	weeklyBoard.Size = Vector3.new(12, 14, 0.5)
+	weeklyBoard.Position = LOBBY_POSITION + Vector3.new(-scoreX, 8, LOBBY.SCORE_Z)
+	weeklyBoard.Orientation = Vector3.new(0, 0, 0)  -- Mirando hacia Z (hacia el jugador)
 	weeklyBoard.Anchored = true
 	weeklyBoard.Material = Enum.Material.Wood
 	weeklyBoard.Color = Color3.fromRGB(60, 42, 28)
@@ -762,20 +768,27 @@ local function CreateScoreboards()
 	-- Marco decorativo
 	local weeklyFrame = Instance.new("Part")
 	weeklyFrame.Name = "WeeklyFrame"
-	weeklyFrame.Size = Vector3.new(13.5, 15.5, 0.5)
-	weeklyFrame.Position = LOBBY_POSITION + Vector3.new(scoreX - 0.3, 8, LOBBY.SCORE_Z - scoreSpacing/2)
-	weeklyFrame.Orientation = Vector3.new(0, 90, 0)
+	weeklyFrame.Size = Vector3.new(13.5, 15.5, 0.3)
+	weeklyFrame.Position = LOBBY_POSITION + Vector3.new(-scoreX, 8, LOBBY.SCORE_Z)
+	weeklyFrame.Orientation = Vector3.new(0, 0, 0)
 	weeklyFrame.Anchored = true
 	weeklyFrame.Material = Enum.Material.Slate
 	weeklyFrame.Color = Color3.fromRGB(35, 28, 22)
 	weeklyFrame.Parent = LobbyFolder
 
-	local weeklyGui = Instance.new("SurfaceGui")
-	weeklyGui.Name = "WeeklyGui"
-	weeklyGui.Face = Enum.NormalId.Front
-	weeklyGui.Parent = weeklyBoard
+	-- GUI en el lado frontal (mirando hacia el spawn)
+	local weeklyGuiFront = Instance.new("SurfaceGui")
+	weeklyGuiFront.Name = "WeeklyGui"
+	weeklyGuiFront.Face = Enum.NormalId.Front
+	weeklyGuiFront.Parent = weeklyBoard
+	CreateScoreboardUI(weeklyGuiFront, "🏆 WEEK'S BEST", Color3.fromRGB(200, 150, 255))
 
-	CreateScoreboardUI(weeklyGui, "🏆 WEEK", Color3.fromRGB(200, 150, 255))
+	-- GUI en el lado trasero (mirando hacia el portal)
+	local weeklyGuiBack = Instance.new("SurfaceGui")
+	weeklyGuiBack.Name = "WeeklyGuiBack"
+	weeklyGuiBack.Face = Enum.NormalId.Back
+	weeklyGuiBack.Parent = weeklyBoard
+	CreateScoreboardUI(weeklyGuiBack, "🏆 WEEK'S BEST", Color3.fromRGB(200, 150, 255))
 
 	local weeklyLight = Instance.new("PointLight")
 	weeklyLight.Color = Color3.fromRGB(255, 180, 80)
@@ -1580,31 +1593,38 @@ local function UpdateScoreboardPanel(panelName, scores)
 	local panel = LobbyFolder:FindFirstChild(panelName)
 	if not panel then return end
 
-	local gui = panel:FindFirstChild("DailyGui") or panel:FindFirstChild("WeeklyGui")
-	if not gui then return end
+	-- Actualizar ambas GUIs (frontal y trasera)
+	local guisToUpdate = {}
+	local guiFront = panel:FindFirstChild("DailyGui") or panel:FindFirstChild("WeeklyGui")
+	local guiBack = panel:FindFirstChild("DailyGuiBack") or panel:FindFirstChild("WeeklyGuiBack")
+	
+	if guiFront then table.insert(guisToUpdate, guiFront) end
+	if guiBack then table.insert(guisToUpdate, guiBack) end
 
-	local mainFrame = gui:FindFirstChild("MainFrame")
-	if not mainFrame then return end
+	for _, gui in ipairs(guisToUpdate) do
+		local mainFrame = gui:FindFirstChild("MainFrame")
+		if mainFrame then
+			local scoreList = mainFrame:FindFirstChild("ScoreList")
+			if scoreList then
+				for i = 1, 10 do
+					local entry = scoreList:FindFirstChild("Entry" .. i)
+					if entry then
+						local nameLabel = entry:FindFirstChild("PlayerName")
+						local scoreLabel = entry:FindFirstChild("Score")
 
-	local scoreList = mainFrame:FindFirstChild("ScoreList")
-	if not scoreList then return end
-
-	for i = 1, 10 do
-		local entry = scoreList:FindFirstChild("Entry" .. i)
-		if entry then
-			local nameLabel = entry:FindFirstChild("PlayerName")
-			local scoreLabel = entry:FindFirstChild("Score")
-
-			if scores[i] then
-				if nameLabel then
-					nameLabel.Text = scores[i].Name
+						if scores[i] then
+							if nameLabel then
+								nameLabel.Text = scores[i].Name
+							end
+							if scoreLabel then
+								scoreLabel.Text = string.format("%.1f%%", scores[i].Score)
+							end
+						else
+							if nameLabel then nameLabel.Text = "---" end
+							if scoreLabel then scoreLabel.Text = "0%" end
+						end
+					end
 				end
-				if scoreLabel then
-					scoreLabel.Text = string.format("%.1f%%", scores[i].Score)
-				end
-			else
-				if nameLabel then nameLabel.Text = "---" end
-				if scoreLabel then scoreLabel.Text = "0%" end
 			end
 		end
 	end
