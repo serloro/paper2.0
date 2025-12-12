@@ -1,0 +1,18 @@
+# Project place file
+/paper2.0.rbxlx
+
+# Roblox / Rojo
+*.rbxl
+*.rbxlx
+*.rbxm
+*.rbxmx
+
+# Rojo
+__Rojo_SessionLock
+
+# OS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/

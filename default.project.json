@@ -1,0 +1,27 @@
+{
+  "name": "paper2.0",
+  "tree": {
+    "$className": "DataModel",
+
+    "ServerScriptService": {
+      "$path": "src/server"
+    },
+
+    "ReplicatedStorage": {
+      "$path": "src/shared"
+    },
+
+    "StarterGui": {
+      "$path": "src/client/gui"
+    },
+
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "$path": "src/client/player"
+      },
+      "StarterCharacterScripts": {
+        "$path": "src/client/character"
+      }
+    }
+  }
+}
