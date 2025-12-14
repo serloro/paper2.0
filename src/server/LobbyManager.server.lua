@@ -271,48 +271,71 @@ local function CreateShopItem(position, itemData, facing)
 	sign.Color = Color3.fromRGB(80, 55, 30)
 	sign.Parent = itemFolder
 
-	-- GUI del cartel (ahora en el lado que mira al centro)
-	local surfaceGui = Instance.new("SurfaceGui")
-	surfaceGui.Name = "SignGui"
-	surfaceGui.Face = Enum.NormalId.Front
-	surfaceGui.Parent = sign
+	-- Función para crear el contenido del cartel
+	local function CreateSignContent(parent)
+		local mainFrame = Instance.new("Frame")
+		mainFrame.Size = UDim2.new(1, 0, 1, 0)
+		mainFrame.BackgroundTransparency = 1
+		mainFrame.Parent = parent
 
-	local mainFrame = Instance.new("Frame")
-	mainFrame.Size = UDim2.new(1, 0, 1, 0)
-	mainFrame.BackgroundTransparency = 1
-	mainFrame.Parent = surfaceGui
+		-- Icono
+		local iconLabel = Instance.new("TextLabel")
+		iconLabel.Size = UDim2.new(1, 0, 0.20, 0)
+		iconLabel.BackgroundTransparency = 1
+		iconLabel.Text = itemData.icon
+		iconLabel.TextScaled = true
+		iconLabel.Font = Enum.Font.GothamBold
+		iconLabel.TextColor3 = itemData.color
+		iconLabel.Parent = mainFrame
 
-	-- Icono
-	local iconLabel = Instance.new("TextLabel")
-	iconLabel.Size = UDim2.new(1, 0, 0.35, 0)
-	iconLabel.BackgroundTransparency = 1
-	iconLabel.Text = itemData.icon
-	iconLabel.TextScaled = true
-	iconLabel.Font = Enum.Font.GothamBold
-	iconLabel.TextColor3 = itemData.color
-	iconLabel.Parent = mainFrame
+		-- Nombre
+		local nameLabel = Instance.new("TextLabel")
+		nameLabel.Size = UDim2.new(1, 0, 0.15, 0)
+		nameLabel.Position = UDim2.new(0, 0, 0.20, 0)
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.Text = itemData.displayName
+		nameLabel.TextScaled = true
+		nameLabel.Font = Enum.Font.Fantasy
+		nameLabel.TextColor3 = Color3.fromRGB(255, 230, 180)
+		nameLabel.Parent = mainFrame
 
-	-- Nombre
-	local nameLabel = Instance.new("TextLabel")
-	nameLabel.Size = UDim2.new(1, 0, 0.25, 0)
-	nameLabel.Position = UDim2.new(0, 0, 0.35, 0)
-	nameLabel.BackgroundTransparency = 1
-	nameLabel.Text = itemData.displayName
-	nameLabel.TextScaled = true
-	nameLabel.Font = Enum.Font.Fantasy
-	nameLabel.TextColor3 = Color3.fromRGB(255, 230, 180)
-	nameLabel.Parent = mainFrame
+		-- Descripción (beneficios)
+		local descLabel = Instance.new("TextLabel")
+		descLabel.Size = UDim2.new(0.95, 0, 0.30, 0)
+		descLabel.Position = UDim2.new(0.025, 0, 0.38, 0)
+		descLabel.BackgroundTransparency = 1
+		descLabel.Text = itemData.description or ""
+		descLabel.TextScaled = true
+		descLabel.Font = Enum.Font.GothamBold
+		descLabel.TextColor3 = Color3.fromRGB(150, 255, 150)
+		descLabel.TextWrapped = true
+		descLabel.Parent = mainFrame
 
-	-- Precio
-	local priceLabel = Instance.new("TextLabel")
-	priceLabel.Size = UDim2.new(1, 0, 0.25, 0)
-	priceLabel.Position = UDim2.new(0, 0, 0.65, 0)
-	priceLabel.BackgroundTransparency = 1
-	priceLabel.Text = "💰 " .. itemData.price .. " R$"
-	priceLabel.TextScaled = true
-	priceLabel.Font = Enum.Font.GothamBold
-	priceLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
-	priceLabel.Parent = mainFrame
+		-- Precio
+		local priceLabel = Instance.new("TextLabel")
+		priceLabel.Size = UDim2.new(1, 0, 0.18, 0)
+		priceLabel.Position = UDim2.new(0, 0, 0.72, 0)
+		priceLabel.BackgroundTransparency = 1
+		priceLabel.Text = "💰 " .. itemData.price .. " R$"
+		priceLabel.TextScaled = true
+		priceLabel.Font = Enum.Font.GothamBold
+		priceLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+		priceLabel.Parent = mainFrame
+	end
+
+	-- GUI en cara Front
+	local surfaceGuiFront = Instance.new("SurfaceGui")
+	surfaceGuiFront.Name = "SignGuiFront"
+	surfaceGuiFront.Face = Enum.NormalId.Front
+	surfaceGuiFront.Parent = sign
+	CreateSignContent(surfaceGuiFront)
+
+	-- GUI en cara Back (para ver desde el otro lado)
+	local surfaceGuiBack = Instance.new("SurfaceGui")
+	surfaceGuiBack.Name = "SignGuiBack"
+	surfaceGuiBack.Face = Enum.NormalId.Back
+	surfaceGuiBack.Parent = sign
+	CreateSignContent(surfaceGuiBack)
 
 	-- Zona de compra
 	local buyZone = Instance.new("Part")
@@ -352,6 +375,7 @@ local SHOP_ITEMS = {
 	{
 		name = "VIP",
 		displayName = "VIP PASS",
+		description = "+20% Speed & +50% Starting Zone",
 		icon = "💎",
 		price = 199,
 		color = Color3.fromRGB(100, 180, 255),
@@ -361,6 +385,7 @@ local SHOP_ITEMS = {
 	{
 		name = "TRAIL",
 		displayName = "RAINBOW TRAIL",
+		description = "Rainbow particles when you walk",
 		icon = "✨",
 		price = 99,
 		color = Color3.fromRGB(255, 100, 255),
@@ -370,6 +395,7 @@ local SHOP_ITEMS = {
 	{
 		name = "GOLDEN_SKIN",
 		displayName = "GOLDEN SKIN",
+		description = "Exclusive golden look & crown",
 		icon = "🌟",
 		price = 149,
 		color = Color3.fromRGB(255, 215, 0),
@@ -957,10 +983,11 @@ local function CreateWaitingRoom()
 		billboard.Parent = circle
 
 		local numLabel = Instance.new("TextLabel")
+		numLabel.Name = "NumLabel"
 		numLabel.Size = UDim2.new(1, 0, 1, 0)
 		numLabel.BackgroundTransparency = 1
 		numLabel.Text = tostring(i)
-		numLabel.TextColor3 = Color3.fromRGB(150, 200, 255)
+		numLabel.TextColor3 = Color3.fromRGB(100, 100, 100)  -- Empieza apagado
 		numLabel.TextScaled = true
 		numLabel.Font = Enum.Font.GothamBold
 		numLabel.Parent = billboard
@@ -1316,16 +1343,28 @@ local function UpdateWaitingRoomDisplay()
 		end
 	end
 
-	-- Actualizar círculos de spawn (iluminar los ocupados)
+	-- Actualizar círculos de spawn y números (iluminar los ocupados)
 	for i = 1, 8 do
 		local circle = WaitingRoomFolder:FindFirstChild("SpawnCircle" .. i)
 		if circle then
+			-- Buscar el número (TextLabel) dentro del BillboardGui
+			local billboard = circle:FindFirstChildOfClass("BillboardGui")
+			local numLabel = billboard and billboard:FindFirstChild("NumLabel")
+			
 			if i <= #WaitingPlayers then
+				-- Círculo y número iluminados (jugador presente)
 				circle.Color = Color3.fromRGB(100, 255, 100)
 				circle.Transparency = 0.2
+				if numLabel then
+					numLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+				end
 			else
+				-- Círculo y número apagados (esperando jugador)
 				circle.Color = Color3.fromRGB(50, 100, 200)
 				circle.Transparency = 0.6
+				if numLabel then
+					numLabel.TextColor3 = Color3.fromRGB(100, 100, 100)
+				end
 			end
 		end
 	end
