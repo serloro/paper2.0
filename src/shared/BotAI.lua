@@ -1,19 +1,22 @@
 --[[
     BotAI.lua
-    Inteligencia artificial MEJORADA para bots con 3 comportamientos
+    Inteligencia artificial AVANZADA para bots
     
-    COMPORTAMIENTOS:
-    - SLOW (Lento): Zonas pequeñas, movimientos cautelosos, evita riesgos
-    - MEDIUM (Medio): Zonas medianas, comportamiento equilibrado
-    - AGGRESSIVE (Agresivo): Zonas grandes, movimientos rápidos, asume riesgos
+    GRADOS DE AGRESIVIDAD (1-3):
+    - Grado 1 (Cauteloso): Zonas pequeñas, muy atento a peligros
+    - Grado 2 (Equilibrado): Zonas medianas, comportamiento balanceado
+    - Grado 3 (Agresivo): Zonas grandes, arriesga mucho, muy activo
     
-    MEJORAS:
-    - Detección de peligros (bolas, líneas enemigas)
-    - Planificación de rutas más inteligente
-    - Evita zonas de otros jugadores
-    - Comportamiento táctico
+    MEJORAS v2.0:
+    - Predicción de trayectoria de bolas
+    - Siempre en movimiento (nunca parado)
+    - Formas circulares para maximizar territorio
+    - Nombres aleatorios realistas
+    - Esquiva inteligente de bolas
 ]]
-print("BotAI.lua loaded")
+
+print("BotAI.lua v2.0 loaded")
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local Config = require(ReplicatedStorage:WaitForChild("Config"))
@@ -23,60 +26,85 @@ BotAI.__index = BotAI
 
 -- Estados de IA
 local AIState = {
-	IDLE = "Idle",
-	PLANNING = "Planning",
-	TRACING = "Tracing",
-	RETURNING = "Returning",
-	FLEEING = "Fleeing",
-	HUNTING = "Hunting"  -- NUEVO: Buscando cortar líneas enemigas
+	MOVING = "Moving",           -- Siempre moviéndose en zona segura
+	TRACING = "Tracing",         -- Dibujando figura fuera de zona
+	RETURNING = "Returning",     -- Volviendo a zona segura (urgente)
+	EVADING = "Evading",         -- Esquivando bola activamente
 }
 
--- Tipos de comportamiento
-local BehaviorType = {
-	SLOW = "Slow",
-	MEDIUM = "Medium",
-	AGGRESSIVE = "Aggressive"
+-- Lista de 100 nombres aleatorios para bots
+local BOT_NAMES = {
+	"Alex", "Max", "Sam", "Jordan", "Taylor", "Morgan", "Casey", "Riley", "Quinn", "Avery",
+	"Blake", "Drew", "Sage", "Phoenix", "River", "Sky", "Storm", "Blaze", "Frost", "Shadow",
+	"Nova", "Luna", "Star", "Ace", "King", "Duke", "Prince", "Knight", "Ninja", "Titan",
+	"Zeus", "Thor", "Odin", "Loki", "Atlas", "Apollo", "Mars", "Neo", "Axel", "Rex",
+	"Cody", "Jake", "Kyle", "Ryan", "Mike", "Nick", "Josh", "Luke", "Evan", "Cole",
+	"Leo", "Kai", "Zack", "Troy", "Brad", "Chad", "Seth", "Dean", "Kurt", "Brock",
+	"Dash", "Finn", "Jett", "Knox", "Milo", "Nash", "Owen", "Zane", "Cruz", "Gage",
+	"Epic", "Pro", "Ultra", "Mega", "Super", "Hyper", "Turbo", "Nitro", "Alpha", "Beta",
+	"Omega", "Delta", "Sigma", "Gamma", "Viper", "Cobra", "Hawk", "Wolf", "Bear", "Lion",
+	"Tiger", "Eagle", "Shark", "Dragon", "Rocket", "Laser", "Plasma", "Cyber", "Pixel", "Neon"
 }
 
--- Configuración por comportamiento MEJORADA
-local BehaviorConfig = {
-	[BehaviorType.SLOW] = {
-		Speed = 12,  -- Un poco más rápido
-		MinTraceLength = 10,
-		MaxTraceLength = 20,
-		IdleTimeMin = 1.5,
-		IdleTimeMax = 3,
-		DangerAvoidance = 0.9,  -- Alta probabilidad de huir
-		HuntChance = 0.1,  -- Baja probabilidad de cazar
+-- Configuración por grado de agresividad (1-3)
+local GradeConfig = {
+	[1] = { -- Cauteloso
+		Speed = 14,
+		CircleRadius = {8, 15},      -- Radio de círculos pequeños
+		IdleMovementRadius = 3,      -- Se mueve poco en zona segura
+		TimeBetweenTraces = {2, 4},  -- Espera más entre trazos
+		DangerReactionDistance = 25, -- Reacciona desde lejos
+		BallPredictionTime = 1.5,    -- Predice bolas 1.5 segundos
+		ReturnThreshold = 0.7,       -- Vuelve cuando hizo 70% del trazo
 		Color = Color3.fromRGB(100, 200, 100),
 		BodyColor = Color3.fromRGB(80, 160, 80),
-		Name = "🐢"
+		Icon = "🐢"
 	},
-	[BehaviorType.MEDIUM] = {
-		Speed = 16,  -- Más rápido
-		MinTraceLength = 18,
-		MaxTraceLength = 35,
-		IdleTimeMin = 0.8,
-		IdleTimeMax = 2,
-		DangerAvoidance = 0.6,  -- Moderada probabilidad de huir
-		HuntChance = 0.3,  -- Moderada probabilidad de cazar
+	[2] = { -- Equilibrado
+		Speed = 18,
+		CircleRadius = {15, 28},
+		IdleMovementRadius = 5,
+		TimeBetweenTraces = {1, 2.5},
+		DangerReactionDistance = 18,
+		BallPredictionTime = 1.0,
+		ReturnThreshold = 0.85,
 		Color = Color3.fromRGB(200, 200, 100),
 		BodyColor = Color3.fromRGB(180, 180, 80),
-		Name = "🏃"
+		Icon = "🏃"
 	},
-	[BehaviorType.AGGRESSIVE] = {
-		Speed = 20,  -- Muy rápido
-		MinTraceLength = 30,
-		MaxTraceLength = 55,
-		IdleTimeMin = 0.3,
-		IdleTimeMax = 1,
-		DangerAvoidance = 0.3,  -- Baja probabilidad de huir
-		HuntChance = 0.6,  -- Alta probabilidad de cazar
+	[3] = { -- Agresivo
+		Speed = 22,
+		CircleRadius = {25, 45},
+		IdleMovementRadius = 8,
+		TimeBetweenTraces = {0.3, 1},
+		DangerReactionDistance = 12,
+		BallPredictionTime = 0.6,
+		ReturnThreshold = 0.95,
 		Color = Color3.fromRGB(255, 100, 100),
 		BodyColor = Color3.fromRGB(200, 60, 60),
-		Name = "🔥"
+		Icon = "🔥"
 	}
 }
+
+-- Generar nombre aleatorio único
+local usedNames = {}
+local function GenerateRandomName()
+	local baseName = BOT_NAMES[math.random(1, #BOT_NAMES)]
+	local number = math.random(1, 999)
+	local fullName = baseName .. number
+	
+	-- Asegurar que sea único
+	local attempts = 0
+	while usedNames[fullName] and attempts < 50 do
+		baseName = BOT_NAMES[math.random(1, #BOT_NAMES)]
+		number = math.random(1, 999)
+		fullName = baseName .. number
+		attempts = attempts + 1
+	end
+	
+	usedNames[fullName] = true
+	return fullName
+end
 
 -- Crear nueva instancia de IA
 function BotAI.new(bot, territoryManager, matchFolder)
@@ -85,47 +113,49 @@ function BotAI.new(bot, territoryManager, matchFolder)
 	self.Bot = bot
 	self.TerritoryManager = territoryManager
 	self.MatchFolder = matchFolder
-	self.State = AIState.IDLE
+	self.State = AIState.MOVING
 	self.Position = bot.Position or Vector3.new(0, 1, 0)
 	self.TargetPosition = nil
 	self.HomePosition = bot.Position or Vector3.new(0, 1, 0)
 
-	-- Elegir comportamiento aleatorio
-	local behaviors = {BehaviorType.SLOW, BehaviorType.MEDIUM, BehaviorType.AGGRESSIVE}
-	self.Behavior = behaviors[math.random(1, #behaviors)]
-	self.Config = BehaviorConfig[self.Behavior]
-
+	-- Asignar grado aleatorio (1-3)
+	self.Grade = math.random(1, 3)
+	self.Config = GradeConfig[self.Grade]
 	self.Speed = self.Config.Speed
+	
+	-- Nombre aleatorio
+	self.DisplayName = GenerateRandomName()
+	bot.Name = self.DisplayName -- Actualizar nombre del bot
 
 	-- Timers
 	self.ThinkTimer = 0
-	self.ThinkDelay = 0.2 + math.random() * 0.2  -- Piensa más rápido
-	self.IdleTimer = 0
-	self.MaxIdleTime = self.Config.IdleTimeMin + math.random() * (self.Config.IdleTimeMax - self.Config.IdleTimeMin)
+	self.ThinkDelay = 0.1  -- Piensa muy rápido
+	self.TraceTimer = 0
+	self.NextTraceTime = self.Config.TimeBetweenTraces[1] + 
+		math.random() * (self.Config.TimeBetweenTraces[2] - self.Config.TimeBetweenTraces[1])
 
 	-- Trazado
 	self.TracePoints = {}
-	self.MaxTraceLength = self.Config.MinTraceLength + math.random(0, self.Config.MaxTraceLength - self.Config.MinTraceLength)
 	self.TraceDistance = 0
-
-	-- Waypoints para figuras complejas
+	self.MaxTraceDistance = 0
+	
+	-- Waypoints para círculos
 	self.Waypoints = {}
 	self.CurrentWaypointIndex = 1
+	
+	-- Movimiento en zona segura
+	self.SafeMovementTarget = nil
+	self.SafeMovementTimer = 0
 
-	-- NUEVO: Detección de peligros
-	self.LastDangerCheck = 0
-	self.DangerCheckInterval = 0.3
-	self.KnownEnemyLines = {}
-	self.KnownBalls = {}
-
-	-- NUEVO: Objetivos de caza
-	self.HuntTarget = nil
-	self.HuntTimeout = 0
+	-- Detección de peligros
+	self.LastBallCheck = 0
+	self.BallCheckInterval = 0.15  -- Chequea bolas muy frecuentemente
+	self.DangerousBall = nil
 
 	-- Cuerpo visual
 	self.BodyModel = nil
 
-	print("🤖", bot.Name, "creado con comportamiento:", self.Behavior, self.Config.Name)
+	print("🤖", self.DisplayName, "creado - Grado", self.Grade, self.Config.Icon)
 
 	return self
 end
@@ -135,7 +165,7 @@ function BotAI:CreateBody(color)
 	if self.BodyModel then return end
 
 	local model = Instance.new("Model")
-	model.Name = self.Bot.Name .. "_Body"
+	model.Name = self.DisplayName .. "_Body"
 
 	-- Torso principal
 	local torso = Instance.new("Part")
@@ -208,16 +238,16 @@ function BotAI:CreateBody(color)
 	armR.Position = self.Position + Vector3.new(1.3, 2.5, 0)
 	armR.Parent = model
 
-	-- Indicador de comportamiento sobre la cabeza
+	-- Indicador de nombre sobre la cabeza
 	local billboard = Instance.new("BillboardGui")
-	billboard.Size = UDim2.new(0, 60, 0, 35)
+	billboard.Size = UDim2.new(0, 100, 0, 40)
 	billboard.StudsOffset = Vector3.new(0, 3, 0)
 	billboard.Parent = head
 
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.new(1, 0, 1, 0)
 	label.BackgroundTransparency = 1
-	label.Text = self.Config.Name .. " " .. self.Bot.Name
+	label.Text = self.Config.Icon .. " " .. self.DisplayName
 	label.TextColor3 = Color3.new(1, 1, 1)
 	label.TextScaled = true
 	label.Font = Enum.Font.GothamBold
@@ -259,31 +289,31 @@ function BotAI:UpdateBodyPosition()
 	local eyeR = self.BodyModel:FindFirstChild("EyeR")
 	if eyeR then eyeR.CFrame = lookCFrame * CFrame.new(0.3, 4.1, 0.7) end
 
-	-- Animación de caminar más rápida cuando corre
+	-- Animación de caminar (siempre activa)
 	local speedMult = self.Speed / 14
-	local walkSpeed = 8 * speedMult
+	local walkSpeed = 10 * speedMult
 
 	local legL = self.BodyModel:FindFirstChild("LegL")
 	if legL then
-		local walkOffset = math.sin(tick() * walkSpeed) * 0.4
+		local walkOffset = math.sin(tick() * walkSpeed) * 0.5
 		legL.CFrame = lookCFrame * CFrame.new(-0.5, 0.5, walkOffset)
 	end
 
 	local legR = self.BodyModel:FindFirstChild("LegR")
 	if legR then
-		local walkOffset = math.sin(tick() * walkSpeed + math.pi) * 0.4
+		local walkOffset = math.sin(tick() * walkSpeed + math.pi) * 0.5
 		legR.CFrame = lookCFrame * CFrame.new(0.5, 0.5, walkOffset)
 	end
 
 	local armL = self.BodyModel:FindFirstChild("ArmL")
 	if armL then
-		local armSwing = math.sin(tick() * walkSpeed + math.pi) * 0.5
+		local armSwing = math.sin(tick() * walkSpeed + math.pi) * 0.6
 		armL.CFrame = lookCFrame * CFrame.new(-1.3, 2.5, armSwing)
 	end
 
 	local armR = self.BodyModel:FindFirstChild("ArmR")
 	if armR then
-		local armSwing = math.sin(tick() * walkSpeed) * 0.5
+		local armSwing = math.sin(tick() * walkSpeed) * 0.6
 		armR.CFrame = lookCFrame * CFrame.new(1.3, 2.5, armSwing)
 	end
 end
@@ -295,113 +325,175 @@ function BotAI:SetHomePosition(position)
 	self:UpdateBodyPosition()
 end
 
--- Detectar peligros cercanos (bolas, líneas, territorio enemigo)
-function BotAI:DetectDangers()
-	local dangers = {}
-
-	if not self.MatchFolder then return dangers end
-
-	-- Buscar líneas activas de otros jugadores
-	for _, part in ipairs(self.MatchFolder:GetDescendants()) do
-		if part:IsA("BasePart") and part:GetAttribute("IsActiveLine") then
-			local ownerName = part:GetAttribute("OwnerName")
-			if ownerName and ownerName ~= self.Bot.Name then
-				local dist = (part.Position - self.Position).Magnitude
-				if dist < 15 then
-					table.insert(dangers, {
-						type = "line",
-						position = part.Position,
-						distance = dist,
-						owner = ownerName
-					})
-				end
-			end
-		end
-
-		-- Detectar bolas con pinchos
-		if part:IsA("BasePart") and (part.Name == "Ball" or part.Parent and part.Parent.Name == "SpikeBall") then
-			local dist = (part.Position - self.Position).Magnitude
-			if dist < 20 then
-				table.insert(dangers, {
-					type = "ball",
-					position = part.Position,
-					distance = dist
-				})
-			end
-		end
-	end
-
-	-- NUEVO: Detectar territorio enemigo en la dirección de movimiento
-	if self.TargetPosition and self.TerritoryManager then
-		local direction = (self.TargetPosition - self.Position).Unit
-		local checkDistance = 3 -- Verificar 3 studs adelante
-		local futurePos = self.Position + direction * checkDistance
-
-		local enemyOwner = self.TerritoryManager:GetTerritoryOwnerAt(futurePos)
-		if enemyOwner and enemyOwner ~= self.Bot then
-			table.insert(dangers, {
-				type = "territory",
-				position = futurePos,
-				distance = checkDistance,
-				owner = enemyOwner.Name
-			})
-		end
-	end
-
-	return dangers
-end
-
--- Verificar si la posición objetivo es segura
-function BotAI:IsPositionSafe(position)
-	if not self.TerritoryManager then return true end
-
-	local owner = self.TerritoryManager:GetTerritoryOwnerAt(position)
-	if owner and owner ~= self.Bot then
-		return false -- Territorio enemigo
-	end
-	return true
-end
-
--- NUEVO: Buscar líneas enemigas para cortar
-function BotAI:FindEnemyLineToCut()
+-- PREDICCIÓN DE BOLAS: Calcular si una bola va hacia el bot
+function BotAI:PredictBallCollision()
 	if not self.MatchFolder then return nil end
 
-	local bestTarget = nil
-	local bestScore = 0
+	local dangerousBall = nil
+	local closestTime = math.huge
 
 	for _, part in ipairs(self.MatchFolder:GetDescendants()) do
-		if part:IsA("BasePart") and part:GetAttribute("IsActiveLine") then
-			local ownerName = part:GetAttribute("OwnerName")
-			if ownerName and ownerName ~= self.Bot.Name then
-				local dist = (part.Position - self.Position).Magnitude
-
-				-- Score basado en distancia (más cerca = mejor)
-				local score = 100 - dist
-
-				if score > bestScore and dist < 50 then
-					bestScore = score
-					bestTarget = {
-						position = part.Position,
-						owner = ownerName,
-						distance = dist
+		-- Detectar bolas (pueden ser Part con nombre Ball o dentro de SpikeBall)
+		local isBall = part:IsA("BasePart") and (
+			part.Name == "Ball" or 
+			part.Name == "Core" or
+			(part.Parent and part.Parent.Name == "SpikeBall")
+		)
+		
+		if isBall then
+			local ballPos = part.Position
+			local ballVel = Vector3.new(0, 0, 0)
+			
+			-- Intentar obtener velocidad si tiene BodyVelocity o está en movimiento
+			local bodyVel = part:FindFirstChildOfClass("BodyVelocity")
+			if bodyVel then
+				ballVel = bodyVel.Velocity
+			else
+				-- Intentar obtener de atributo o AssemblyLinearVelocity
+				ballVel = part.AssemblyLinearVelocity or Vector3.new(0, 0, 0)
+			end
+			
+			-- Solo considerar bolas en movimiento
+			if ballVel.Magnitude > 1 then
+				local toBot = self.Position - ballPos
+				local ballDir = ballVel.Unit
+				
+				-- Proyectar para ver si viene hacia nosotros
+				local dotProduct = toBot:Dot(ballDir)
+				
+				if dotProduct > 0 then -- La bola viene hacia nosotros
+					-- Calcular punto más cercano en la trayectoria
+					local closestPoint = ballPos + ballDir * dotProduct
+					local distToTrajectory = (self.Position - closestPoint).Magnitude
+					
+					-- Si pasará cerca de nosotros
+					if distToTrajectory < 8 then  -- Radio de peligro
+						local timeToReach = dotProduct / ballVel.Magnitude
+						
+						-- Solo preocuparse por bolas que llegarán pronto
+						if timeToReach < self.Config.BallPredictionTime and timeToReach < closestTime then
+							closestTime = timeToReach
+							dangerousBall = {
+								part = part,
+								position = ballPos,
+								velocity = ballVel,
+								timeToImpact = timeToReach,
+								impactPoint = closestPoint
+							}
+						end
+					end
+				end
+			end
+			
+			-- También detectar bolas cercanas aunque no se muevan hacia nosotros
+			local dist = (ballPos - self.Position).Magnitude
+			if dist < self.Config.DangerReactionDistance then
+				if not dangerousBall or dist < (dangerousBall.position - self.Position).Magnitude then
+					dangerousBall = {
+						part = part,
+						position = ballPos,
+						velocity = ballVel,
+						timeToImpact = dist / math.max(ballVel.Magnitude, 10),
+						impactPoint = self.Position
 					}
 				end
 			end
 		end
 	end
 
-	return bestTarget
+	return dangerousBall
+end
+
+-- Verificar si estamos en zona segura
+function BotAI:IsInSafeZone()
+	if not self.TerritoryManager then return true end
+	return self.TerritoryManager:IsInSafeZone(self.Bot, self.Position)
+end
+
+-- Calcular dirección de evasión óptima
+function BotAI:CalculateEvadeDirection(ballInfo)
+	local toBall = ballInfo.position - self.Position
+	local perpendicular = Vector3.new(-toBall.Z, 0, toBall.X).Unit
+	
+	-- Elegir dirección que nos aleje de la bola Y nos acerque a casa
+	local toHome = (self.HomePosition - self.Position)
+	if toHome.Magnitude > 0.1 then
+		toHome = toHome.Unit
+	else
+		toHome = Vector3.new(0, 0, 0)
+	end
+	
+	-- Probar ambas direcciones perpendiculares
+	local option1 = (perpendicular + toHome * 0.3).Unit
+	local option2 = (-perpendicular + toHome * 0.3).Unit
+	
+	-- Elegir la que nos aleje más de la bola
+	local dist1 = ((self.Position + option1 * 10) - ballInfo.position).Magnitude
+	local dist2 = ((self.Position + option2 * 10) - ballInfo.position).Magnitude
+	
+	return dist1 > dist2 and option1 or option2
+end
+
+-- Planificar un círculo para capturar territorio
+function BotAI:PlanCircleTrace()
+	local mapSize = Config.MAP_SIZE
+	local basePos = self.TerritoryManager and self.TerritoryManager.MapBasePosition or Vector3.new(0, 0, 0)
+	local halfMap = mapSize / 2 - 15
+	
+	-- Radio según grado de agresividad
+	local minR, maxR = self.Config.CircleRadius[1], self.Config.CircleRadius[2]
+	local radius = minR + math.random() * (maxR - minR)
+	
+	-- Dirección aleatoria para el círculo
+	local startAngle = math.random() * math.pi * 2
+	
+	-- Crear waypoints para un círculo (o semi-círculo para grado 1)
+	self.Waypoints = {}
+	local segments = self.Grade == 1 and 4 or (self.Grade == 2 and 6 or 8)
+	local arcLength = self.Grade == 1 and math.pi or (self.Grade == 2 and math.pi * 1.3 or math.pi * 1.6)
+	
+	for i = 1, segments do
+		local angle = startAngle + (i / segments) * arcLength
+		local point = self.Position + Vector3.new(math.cos(angle), 0, math.sin(angle)) * radius
+		
+		-- Limitar dentro del mapa
+		point = Vector3.new(
+			math.clamp(point.X, basePos.X - halfMap, basePos.X + halfMap),
+			self.Position.Y,
+			math.clamp(point.Z, basePos.Z - halfMap, basePos.Z + halfMap)
+		)
+		
+		table.insert(self.Waypoints, point)
+	end
+	
+	if #self.Waypoints > 0 then
+		self.CurrentWaypointIndex = 1
+		self.TargetPosition = self.Waypoints[1]
+		self.State = AIState.TRACING
+		self.TracePoints = {self.Position}
+		self.TraceDistance = 0
+		self.MaxTraceDistance = radius * arcLength  -- Longitud aproximada del arco
+	end
 end
 
 -- Actualizar IA
 function BotAI:Update(deltaTime)
 	self.ThinkTimer = self.ThinkTimer + deltaTime
-	self.LastDangerCheck = self.LastDangerCheck + deltaTime
+	self.LastBallCheck = self.LastBallCheck + deltaTime
+	self.TraceTimer = self.TraceTimer + deltaTime
+	self.SafeMovementTimer = self.SafeMovementTimer + deltaTime
 
-	-- Check de peligros periódico
-	if self.LastDangerCheck >= self.DangerCheckInterval then
-		self:CheckForDangers()
-		self.LastDangerCheck = 0
+	-- Chequeo frecuente de bolas peligrosas
+	if self.LastBallCheck >= self.BallCheckInterval then
+		self.DangerousBall = self:PredictBallCollision()
+		self.LastBallCheck = 0
+		
+		-- Si hay bola peligrosa y estamos trazando, volver INMEDIATAMENTE
+		if self.DangerousBall and self.State == AIState.TRACING then
+			self.State = AIState.RETURNING
+			self.TargetPosition = self.HomePosition
+			self.Waypoints = {}
+		end
 	end
 
 	if self.ThinkTimer >= self.ThinkDelay then
@@ -409,502 +501,170 @@ function BotAI:Update(deltaTime)
 		self.ThinkTimer = 0
 	end
 
-	self:ExecuteState(deltaTime)
+	self:ExecuteMovement(deltaTime)
 	self:UpdateBodyPosition()
 end
 
--- Verificar y reaccionar a peligros
-function BotAI:CheckForDangers()
-	if self.State == AIState.FLEEING then return end
-
-	local dangers = self:DetectDangers()
-
-	for _, danger in ipairs(dangers) do
-		local shouldFlee = false
-
-		if danger.type == "ball" and danger.distance < 12 then
-			-- Huir de bolas con pinchos
-			shouldFlee = math.random() < self.Config.DangerAvoidance
-
-		elseif danger.type == "line" and danger.distance < 8 then
-			-- Huir de líneas muy cercanas si estamos trazando
-			if self.State == AIState.TRACING then
-				shouldFlee = math.random() < self.Config.DangerAvoidance
-			end
-
-		elseif danger.type == "territory" then
-			-- SIEMPRE evitar territorio enemigo (100% probabilidad)
-			shouldFlee = true
-		end
-
-		if shouldFlee then
-			self:Flee(danger.position)
-			return
-		end
-	end
-end
-
--- Buscar una dirección segura (sin territorio enemigo)
-function BotAI:FindSafeDirection()
-	local directions = {
-		Vector3.new(1, 0, 0),
-		Vector3.new(-1, 0, 0),
-		Vector3.new(0, 0, 1),
-		Vector3.new(0, 0, -1),
-		Vector3.new(1, 0, 1).Unit,
-		Vector3.new(-1, 0, 1).Unit,
-		Vector3.new(1, 0, -1).Unit,
-		Vector3.new(-1, 0, -1).Unit,
-	}
-
-	local safeDirections = {}
-
-	for _, dir in ipairs(directions) do
-		local testPos = self.Position + dir * 5
-		if self:IsPositionSafe(testPos) then
-			table.insert(safeDirections, dir)
-		end
-	end
-
-	if #safeDirections > 0 then
-		return safeDirections[math.random(1, #safeDirections)]
-	end
-
-	-- Si no hay direcciones seguras, ir hacia casa
-	return (self.HomePosition - self.Position).Unit
-end
-
--- Proceso de pensamiento según comportamiento
+-- Proceso de pensamiento
 function BotAI:Think()
-	local isInSafe = self.TerritoryManager:IsInSafeZone(self.Bot, self.Position)
+	local isInSafe = self:IsInSafeZone()
 
-	if self.State == AIState.IDLE then
-		self.IdleTimer = self.IdleTimer + self.ThinkDelay
-
-		if self.IdleTimer >= self.MaxIdleTime then
-			-- NUEVO: Decidir si cazar o trazar
-			if math.random() < self.Config.HuntChance then
-				local target = self:FindEnemyLineToCut()
-				if target then
-					self.HuntTarget = target
-					self.HuntTimeout = 5  -- 5 segundos máximo cazando
-					self.State = AIState.HUNTING
-					self.TargetPosition = target.position
-					return
-				end
+	if self.State == AIState.MOVING then
+		-- En zona segura, moverse aleatoriamente y esperar para trazar
+		if self.TraceTimer >= self.NextTraceTime then
+			-- Verificar que no hay bolas peligrosas antes de salir
+			if not self.DangerousBall then
+				self:PlanCircleTrace()
+				self.TraceTimer = 0
+				self.NextTraceTime = self.Config.TimeBetweenTraces[1] + 
+					math.random() * (self.Config.TimeBetweenTraces[2] - self.Config.TimeBetweenTraces[1])
 			end
-
-			self.State = AIState.PLANNING
-			self.IdleTimer = 0
 		end
-
-	elseif self.State == AIState.PLANNING then
-		if isInSafe then
-			self:PlanTrace()
-		else
-			self:PlanReturn()
-		end
-
+		
 	elseif self.State == AIState.TRACING then
-		if self.TraceDistance >= self.MaxTraceLength then
-			self:PlanReturn()
+		-- Verificar si debemos volver (por distancia o peligro)
+		local shouldReturn = false
+		
+		if self.MaxTraceDistance > 0 then
+			local progress = self.TraceDistance / self.MaxTraceDistance
+			if progress >= self.Config.ReturnThreshold then
+				shouldReturn = true
+			end
 		end
-
+		
+		-- Terminamos los waypoints
+		if self.CurrentWaypointIndex > #self.Waypoints then
+			shouldReturn = true
+		end
+		
+		if shouldReturn then
+			self.State = AIState.RETURNING
+			self.TargetPosition = self.HomePosition
+			self.Waypoints = {}
+		end
+		
 	elseif self.State == AIState.RETURNING then
 		if isInSafe then
-			self.State = AIState.IDLE
+			self.State = AIState.MOVING
 			self.TracePoints = {}
 			self.TraceDistance = 0
-			self.MaxTraceLength = self.Config.MinTraceLength + 
-				math.random(0, self.Config.MaxTraceLength - self.Config.MinTraceLength)
-			self.MaxIdleTime = self.Config.IdleTimeMin + 
-				math.random() * (self.Config.IdleTimeMax - self.Config.IdleTimeMin)
+			self.SafeMovementTarget = nil
 		end
-
-	elseif self.State == AIState.HUNTING then
-		self.HuntTimeout = self.HuntTimeout - self.ThinkDelay
-		if self.HuntTimeout <= 0 then
-			-- Timeout, volver a casa
-			self.HuntTarget = nil
-			self:PlanReturn()
-		elseif isInSafe then
-			-- Llegamos a zona segura durante caza, recalcular
-			self.HuntTarget = nil
-			self.State = AIState.IDLE
-		end
-
-	elseif self.State == AIState.FLEEING then
-		-- Después de huir, volver a casa
+		
+	elseif self.State == AIState.EVADING then
+		-- Después de evadir, volver a casa
 		if isInSafe then
-			self.State = AIState.IDLE
+			self.State = AIState.MOVING
+		elseif not self.DangerousBall then
+			self.State = AIState.RETURNING
+			self.TargetPosition = self.HomePosition
 		end
 	end
 end
 
--- Planificar trazado según comportamiento - FORMAS ESPECÍFICAS
-function BotAI:PlanTrace()
-	local mapSize = Config.MAP_SIZE
-	local currentPos = self.Position
-	local basePos = self.TerritoryManager.MapBasePosition or Vector3.new(0, 0, 0)
-
-	-- Guardar puntos de waypoints para formas complejas
-	self.Waypoints = {}
-	local targetPos
-
-	if self.Behavior == BehaviorType.SLOW then
-		-- SLOW: Círculos pequeños y cuadrados pequeños (seguro y cauteloso)
-		local patterns = {
-			-- Cuadrado pequeño (4 puntos)
-			function()
-				local size = math.random(8, 12)
-				local dir = math.random(1, 4)
-				local offsets = {
-					{Vector3.new(size, 0, 0), Vector3.new(size, 0, size), Vector3.new(0, 0, size)},
-					{Vector3.new(-size, 0, 0), Vector3.new(-size, 0, size), Vector3.new(0, 0, size)},
-					{Vector3.new(size, 0, 0), Vector3.new(size, 0, -size), Vector3.new(0, 0, -size)},
-					{Vector3.new(-size, 0, 0), Vector3.new(-size, 0, -size), Vector3.new(0, 0, -size)},
-				}
-				self.Waypoints = {}
-				for _, offset in ipairs(offsets[dir]) do
-					table.insert(self.Waypoints, currentPos + offset)
-				end
-				return self.Waypoints[1]
-			end,
-			-- Semi-círculo pequeño
-			function()
-				local radius = math.random(8, 12)
-				local startAngle = math.random() * math.pi * 2
-				self.Waypoints = {}
-				for i = 1, 4 do
-					local angle = startAngle + (i / 4) * math.pi
-					table.insert(self.Waypoints, currentPos + Vector3.new(math.cos(angle), 0, math.sin(angle)) * radius)
-				end
-				return self.Waypoints[1]
-			end,
-			-- Triángulo pequeño
-			function()
-				local size = math.random(8, 12)
-				local angle = math.random() * math.pi * 2
-				self.Waypoints = {
-					currentPos + Vector3.new(math.cos(angle), 0, math.sin(angle)) * size,
-					currentPos + Vector3.new(math.cos(angle + 2.1), 0, math.sin(angle + 2.1)) * size,
-				}
-				return self.Waypoints[1]
-			end
-		}
-		targetPos = patterns[math.random(1, #patterns)]()
-
-	elseif self.Behavior == BehaviorType.MEDIUM then
-		-- MEDIUM: Formas de L, rectángulos, semi-círculos medianos
-		local patterns = {
-			-- Forma de L
-			function()
-				local len1 = math.random(15, 25)
-				local len2 = math.random(12, 18)
-				local dir = math.random(1, 4)
-				local waypoints = {
-					{Vector3.new(len1, 0, 0), Vector3.new(len1, 0, len2)},
-					{Vector3.new(-len1, 0, 0), Vector3.new(-len1, 0, len2)},
-					{Vector3.new(0, 0, len1), Vector3.new(len2, 0, len1)},
-					{Vector3.new(0, 0, -len1), Vector3.new(len2, 0, -len1)},
-				}
-				self.Waypoints = {}
-				for _, offset in ipairs(waypoints[dir]) do
-					table.insert(self.Waypoints, currentPos + offset)
-				end
-				return self.Waypoints[1]
-			end,
-			-- Rectángulo mediano
-			function()
-				local width = math.random(12, 20)
-				local height = math.random(18, 28)
-				self.Waypoints = {
-					currentPos + Vector3.new(width, 0, 0),
-					currentPos + Vector3.new(width, 0, height),
-					currentPos + Vector3.new(0, 0, height),
-				}
-				return self.Waypoints[1]
-			end,
-			-- Arco hacia el centro
-			function()
-				local toCenter = (basePos - currentPos)
-				local dist = math.min(toCenter.Magnitude * 0.6, 30)
-				if dist > 10 then
-					local perpendicular = Vector3.new(-toCenter.Z, 0, toCenter.X).Unit
-					self.Waypoints = {
-						currentPos + toCenter.Unit * dist * 0.5 + perpendicular * 10,
-						currentPos + toCenter.Unit * dist,
-					}
-					return self.Waypoints[1]
-				else
-					local angle = math.random() * math.pi * 2
-					return currentPos + Vector3.new(math.cos(angle), 0, math.sin(angle)) * 25
-				end
-			end
-		}
-		targetPos = patterns[math.random(1, #patterns)]()
-
-	elseif self.Behavior == BehaviorType.AGGRESSIVE then
-		-- AGGRESSIVE: Círculos grandes, conquistas largas hacia el centro
-		local patterns = {
-			-- Círculo grande (conquistar mucho territorio)
-			function()
-				local radius = math.random(25, 40)
-				local startAngle = math.random() * math.pi * 2
-				self.Waypoints = {}
-				for i = 1, 6 do
-					local angle = startAngle + (i / 6) * math.pi * 1.5
-					table.insert(self.Waypoints, currentPos + Vector3.new(math.cos(angle), 0, math.sin(angle)) * radius)
-				end
-				return self.Waypoints[1]
-			end,
-			-- Conquista hacia el centro (línea larga + retorno)
-			function()
-				local toCenter = (basePos - currentPos)
-				local dist = math.min(toCenter.Magnitude * 0.8, 45)
-				if dist > 15 then
-					self.Waypoints = {
-						currentPos + toCenter.Unit * dist,
-					}
-					return self.Waypoints[1]
-				else
-					-- Ya cerca del centro, expandir en círculo
-					local angle = math.random() * math.pi * 2
-					local radius = math.random(30, 45)
-					self.Waypoints = {}
-					for i = 1, 4 do
-						local a = angle + (i / 4) * math.pi * 1.5
-						table.insert(self.Waypoints, currentPos + Vector3.new(math.cos(a), 0, math.sin(a)) * radius)
-					end
-					return self.Waypoints[1]
-				end
-			end,
-			-- Zigzag agresivo (cubre mucho terreno)
-			function()
-				local length = math.random(35, 50)
-				local width = math.random(15, 25)
-				local dir = math.random(1, 2) == 1 and 1 or -1
-				self.Waypoints = {
-					currentPos + Vector3.new(length * 0.3, 0, width * dir),
-					currentPos + Vector3.new(length * 0.6, 0, 0),
-					currentPos + Vector3.new(length, 0, width * dir),
-				}
-				return self.Waypoints[1]
-			end
-		}
-		targetPos = patterns[math.random(1, #patterns)]()
+-- Ejecutar movimiento (NUNCA estar parado)
+function BotAI:ExecuteMovement(deltaTime)
+	local currentSpeed = self.Speed
+	
+	-- Velocidad extra cuando hay peligro
+	if self.DangerousBall then
+		currentSpeed = self.Speed * 1.4
 	end
-
-	-- Limitar dentro del mapa
-	local halfMap = mapSize / 2 - 10
-	targetPos = Vector3.new(
-		math.clamp(targetPos.X, basePos.X - halfMap, basePos.X + halfMap),
-		self.Position.Y,
-		math.clamp(targetPos.Z, basePos.Z - halfMap, basePos.Z + halfMap)
-	)
-
-	-- También limitar waypoints
-	for i, wp in ipairs(self.Waypoints) do
-		self.Waypoints[i] = Vector3.new(
-			math.clamp(wp.X, basePos.X - halfMap, basePos.X + halfMap),
-			self.Position.Y,
-			math.clamp(wp.Z, basePos.Z - halfMap, basePos.Z + halfMap)
-		)
-	end
-
-	-- VERIFICAR que el destino no sea territorio enemigo
-	if not self:IsPositionSafe(targetPos) then
-		local safeDir = self:FindSafeDirection()
-		local safeDistance = math.random(self.Config.MinTraceLength, self.Config.MaxTraceLength)
-		targetPos = self.Position + safeDir * safeDistance
-		self.Waypoints = {} -- Cancelar waypoints si hay peligro
-
-		targetPos = Vector3.new(
-			math.clamp(targetPos.X, basePos.X - halfMap, basePos.X + halfMap),
-			self.Position.Y,
-			math.clamp(targetPos.Z, basePos.Z - halfMap, basePos.Z + halfMap)
-		)
-	end
-
-	self.TargetPosition = targetPos
-	self.CurrentWaypointIndex = 1
-	self.State = AIState.TRACING
-	self.TracePoints = {self.Position}
-	self.TraceDistance = 0
-end
-
--- Planificar retorno
-function BotAI:PlanReturn()
-	self.TargetPosition = self.HomePosition
-	self.State = AIState.RETURNING
-end
-
--- Ejecutar acción según estado
-function BotAI:ExecuteState(deltaTime)
-	if self.State == AIState.IDLE then
-		-- Pequeños movimientos aleatorios
-		if math.random() < 0.03 then
-			local smallMove = Vector3.new(
-				(math.random() - 0.5) * 0.3,
+	
+	if self.State == AIState.MOVING then
+		-- SIEMPRE moverse en zona segura (pequeños círculos)
+		if not self.SafeMovementTarget or self.SafeMovementTimer > 1.5 or 
+		   (self.SafeMovementTarget - self.Position).Magnitude < 1 then
+			-- Nuevo objetivo de movimiento dentro de la zona segura
+			local radius = self.Config.IdleMovementRadius
+			local angle = math.random() * math.pi * 2
+			self.SafeMovementTarget = self.HomePosition + Vector3.new(
+				math.cos(angle) * radius,
 				0,
-				(math.random() - 0.5) * 0.3
+				math.sin(angle) * radius
 			)
-			self.Position = self.Position + smallMove
+			self.SafeMovementTimer = 0
 		end
-
-	elseif self.State == AIState.TRACING or self.State == AIState.RETURNING or 
-		self.State == AIState.FLEEING or self.State == AIState.HUNTING then
+		
+		self:MoveTowards(self.SafeMovementTarget, deltaTime, currentSpeed * 0.6)
+		
+	elseif self.State == AIState.TRACING then
 		if self.TargetPosition then
-			self:MoveTowards(self.TargetPosition, deltaTime)
-		end
-	end
-end
-
--- Detectar bolas cercanas y calcular dirección de evasión
-function BotAI:GetBallAvoidanceVector()
-	if not self.MatchFolder then return nil end
-
-	local avoidance = Vector3.new(0, 0, 0)
-	local foundDanger = false
-
-	for _, part in ipairs(self.MatchFolder:GetDescendants()) do
-		if part:IsA("BasePart") and (part.Name == "Ball" or (part.Parent and part.Parent.Name == "SpikeBall")) then
-			local ballPos = part.Position
-			local toBall = ballPos - self.Position
-			local dist = toBall.Magnitude
-
-			-- Solo evitar bolas cercanas (< 15 studs)
-			if dist < 15 and dist > 0.1 then
-				-- Vector de evasión inversamente proporcional a la distancia
-				local awayFromBall = -toBall.Unit * (15 - dist) / 15
-				avoidance = avoidance + awayFromBall
-				foundDanger = true
+			-- Si hay bola peligrosa, esquivar mientras trazamos
+			if self.DangerousBall then
+				local evadeDir = self:CalculateEvadeDirection(self.DangerousBall)
+				local evadeTarget = self.Position + evadeDir * 10
+				self:MoveTowards(evadeTarget, deltaTime, currentSpeed)
+			else
+				self:MoveTowards(self.TargetPosition, deltaTime, currentSpeed)
+			end
+			
+			-- Verificar si llegamos al waypoint actual
+			if (self.TargetPosition - self.Position).Magnitude < 2 then
+				self.CurrentWaypointIndex = self.CurrentWaypointIndex + 1
+				if self.CurrentWaypointIndex <= #self.Waypoints then
+					self.TargetPosition = self.Waypoints[self.CurrentWaypointIndex]
+				end
 			end
 		end
+		
+	elseif self.State == AIState.RETURNING then
+		-- Volver a casa lo más rápido posible
+		if self.DangerousBall then
+			-- Esquivar mientras volvemos
+			local evadeDir = self:CalculateEvadeDirection(self.DangerousBall)
+			local toHome = (self.HomePosition - self.Position).Unit
+			local combinedDir = (toHome * 0.6 + evadeDir * 0.4).Unit
+			local target = self.Position + combinedDir * 10
+			self:MoveTowards(target, deltaTime, currentSpeed * 1.2)
+		else
+			self:MoveTowards(self.HomePosition, deltaTime, currentSpeed * 1.1)
+		end
+		
+	elseif self.State == AIState.EVADING then
+		if self.DangerousBall then
+			local evadeDir = self:CalculateEvadeDirection(self.DangerousBall)
+			local target = self.Position + evadeDir * 15
+			self:MoveTowards(target, deltaTime, currentSpeed * 1.3)
+		else
+			self:MoveTowards(self.HomePosition, deltaTime, currentSpeed)
+		end
 	end
-
-	if foundDanger and avoidance.Magnitude > 0.1 then
-		return avoidance.Unit
-	end
-	return nil
 end
 
--- Moverse hacia un punto MEJORADO con evasión de bolas y waypoints
-function BotAI:MoveTowards(targetPos, deltaTime)
+-- Moverse hacia un punto
+function BotAI:MoveTowards(targetPos, deltaTime, speed)
 	local currentPos = self.Position
 	local direction = (targetPos - currentPos)
 	local distance = direction.Magnitude
 
-	-- Verificar si llegamos al waypoint actual (si estamos trazando con waypoints)
-	if distance < 2 then
-		if self.State == AIState.TRACING and self.Waypoints and #self.Waypoints > 0 then
-			-- Pasar al siguiente waypoint
-			self.CurrentWaypointIndex = (self.CurrentWaypointIndex or 1) + 1
-			if self.CurrentWaypointIndex <= #self.Waypoints then
-				self.TargetPosition = self.Waypoints[self.CurrentWaypointIndex]
-				return -- Continuar con el siguiente waypoint
-			else
-				-- Terminamos todos los waypoints, volver a casa
-				self.Waypoints = {}
-				self:PlanReturn()
-				return
-			end
-		elseif self.State == AIState.TRACING then
-			self:PlanReturn()
-		elseif self.State == AIState.RETURNING then
-			self.State = AIState.IDLE
-		elseif self.State == AIState.FLEEING then
-			self.State = AIState.RETURNING
-			self:PlanReturn()
-		elseif self.State == AIState.HUNTING then
-			self.HuntTarget = nil
-			self:PlanReturn()
-		end
+	if distance < 0.5 then
 		return
 	end
 
 	direction = direction.Unit
-
-	-- EVASIÓN DE BOLAS: Mezclar dirección objetivo con evasión
-	if self.State == AIState.TRACING then
-		local ballAvoidance = self:GetBallAvoidanceVector()
-		if ballAvoidance then
-			-- Mezclar dirección objetivo con evasión (60% objetivo, 40% evasión)
-			-- Bots más cautelosos evitan más
-			local avoidWeight = 0.4
-			if self.Behavior == BehaviorType.SLOW then
-				avoidWeight = 0.7  -- Muy cauteloso
-			elseif self.Behavior == BehaviorType.MEDIUM then
-				avoidWeight = 0.5
-			else -- AGGRESSIVE
-				avoidWeight = 0.3  -- Menos cauteloso
-			end
-
-			direction = (direction * (1 - avoidWeight) + ballAvoidance * avoidWeight).Unit
-		end
-	end
-
-	-- Velocidad variable según estado
-	local currentSpeed = self.Speed
-	if self.State == AIState.FLEEING then
-		currentSpeed = self.Speed * 1.3
-	elseif self.State == AIState.HUNTING then
-		currentSpeed = self.Speed * 1.2
-	end
-
-	local moveDistance = math.min(currentSpeed * deltaTime, distance)
+	local moveDistance = math.min(speed * deltaTime, distance)
 	local newPos = currentPos + direction * moveDistance
 	newPos = Vector3.new(newPos.X, currentPos.Y, newPos.Z)
 
-	-- VERIFICAR si la nueva posición es segura (no territorio enemigo)
-	if not self:IsPositionSafe(newPos) then
-		-- Si vamos a pisar territorio enemigo, cambiar dirección
-		local safeDir = self:FindSafeDirection()
-		if safeDir then
-			newPos = currentPos + safeDir * moveDistance
-			newPos = Vector3.new(newPos.X, currentPos.Y, newPos.Z)
-
-			-- Si aún no es seguro, quedarse quieto
-			if not self:IsPositionSafe(newPos) then
-				self:PlanReturn() -- Volver a casa
-				return
-			end
-		else
-			self:PlanReturn()
-			return
-		end
-	end
+	-- Limitar dentro del mapa
+	local mapSize = Config.MAP_SIZE
+	local basePos = self.TerritoryManager and self.TerritoryManager.MapBasePosition or Vector3.new(0, 0, 0)
+	local halfMap = mapSize / 2 - 3
+	
+	newPos = Vector3.new(
+		math.clamp(newPos.X, basePos.X - halfMap, basePos.X + halfMap),
+		newPos.Y,
+		math.clamp(newPos.Z, basePos.Z - halfMap, basePos.Z + halfMap)
+	)
 
 	self.Position = newPos
+	self.TargetPosition = targetPos
 
 	if self.State == AIState.TRACING then
 		self.TraceDistance = self.TraceDistance + moveDistance
 		table.insert(self.TracePoints, newPos)
 	end
-end
-
--- Huir MEJORADO
-function BotAI:Flee(dangerPosition)
-	local direction = (self.Position - dangerPosition)
-	if direction.Magnitude < 0.1 then
-		direction = Vector3.new(math.random() - 0.5, 0, math.random() - 0.5)
-	end
-	direction = direction.Unit
-
-	-- Huir hacia zona segura si es posible
-	local fleeDistance = 25
-	local fleeTarget = self.Position + direction * fleeDistance
-
-	-- Intentar huir hacia casa
-	local toHome = (self.HomePosition - self.Position)
-	if toHome.Magnitude > 5 then
-		fleeTarget = self.Position + (direction + toHome.Unit * 0.5).Unit * fleeDistance
-	end
-
-	self.TargetPosition = fleeTarget
-	self.State = AIState.FLEEING
-	self.TracePoints = {}  -- Cancelar trazo actual
-	self.TraceDistance = 0
 end
 
 -- Obtener posición
@@ -917,9 +677,17 @@ function BotAI:GetState()
 	return self.State
 end
 
--- Obtener comportamiento
+-- Obtener grado
+function BotAI:GetGrade()
+	return self.Grade
+end
+
+-- Obtener comportamiento (compatibilidad)
 function BotAI:GetBehavior()
-	return self.Behavior
+	if self.Grade == 1 then return "Slow"
+	elseif self.Grade == 2 then return "Medium"
+	else return "Aggressive"
+	end
 end
 
 -- Limpiar
@@ -927,6 +695,10 @@ function BotAI:Cleanup()
 	if self.BodyModel then
 		self.BodyModel:Destroy()
 		self.BodyModel = nil
+	end
+	-- Liberar nombre usado
+	if self.DisplayName then
+		usedNames[self.DisplayName] = nil
 	end
 end
 
