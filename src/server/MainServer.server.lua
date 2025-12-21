@@ -18,7 +18,7 @@ MatchesFolder.Name = "Matches"
 
 local PlayerStates = {}
 
-print("🎮 Gal Panic Game - Servidor iniciado")
+print("🎮 Pap3rBlox 3.0 - Servidor iniciado")
 
 local function SendToLobby(player)
 	PlayerStates[player] = GameState.PlayerState.IN_LOBBY

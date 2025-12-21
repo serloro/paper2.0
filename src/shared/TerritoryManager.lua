@@ -1,6 +1,6 @@
 --[[
     TerritoryManager.lua
-    Sistema de territorio tipo Gal Panic con GRID
+    Sistema de territorio tipo Pap3rBlox 3.0 con GRID
     
     - El mapa se divide en celdas pequeñas (como pixels)
     - Cuando cierras un área, se pintan todas las celdas dentro
