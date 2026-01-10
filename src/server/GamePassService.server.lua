@@ -21,9 +21,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- IDS DE GAMEPASSES (CAMBIAR POR LOS REALES)
 -- ========================================
 local GAMEPASS_IDS = {
-	VIP = 0,           -- Reemplazar con ID real
-	TRAIL = 0,         -- Reemplazar con ID real  
-	GOLDEN_SKIN = 0,   -- Reemplazar con ID real
+	VIP = 1656535149,           -- Reemplazar con ID real
+	TRAIL = 1656549095,         -- Reemplazar con ID real  
+	GOLDEN_SKIN = 1656649078,   -- Reemplazar con ID real
 }
 
 -- Precios sugeridos (solo referencia, se configura en el dashboard)
